@@ -1,0 +1,488 @@
+
+import pandas as pd
+import numpy as np
+import math
+from datetime import datetime
+data = pd.read_csv("C:/Users/Admin/Downloads/taxi_fare.csv")
+data
+VendorID	tpep_pickup_datetime	tpep_dropoff_datetime	passenger_count	pickup_longitude	pickup_latitude	RatecodeID	store_and_fwd_flag	dropoff_longitude	dropoff_latitude	payment_type	fare_amount	extra	mta_tax	tip_amount	tolls_amount	improvement_surcharge	total_amount
+0	1	2016-03-01 00:00:00	2016-03-01 00:07:55	1	-73.976746	40.765152	1	N	-74.004265	40.746128	1	9.0	0.5	0.5	2.05	0.00	0.3	12.35
+1	1	2016-03-01 00:00:00	2016-03-01 00:11:06	1	-73.983482	40.767925	1	N	-74.005943	40.733166	1	11.0	0.5	0.5	3.05	0.00	0.3	15.35
+2	2	2016-03-01 00:00:00	2016-03-01 00:31:06	2	-73.782021	40.644810	1	N	-73.974541	40.675770	1	54.5	0.5	0.5	8.00	0.00	0.3	63.80
+3	2	2016-03-01 00:00:00	2016-03-01 00:00:00	3	-73.863419	40.769814	1	N	-73.969650	40.757767	1	31.5	0.0	0.5	3.78	5.54	0.3	41.62
+4	2	2016-03-01 00:00:00	2016-03-01 00:00:00	5	-73.971741	40.792183	3	N	-74.177170	40.695053	1	98.0	0.0	0.0	0.00	15.50	0.3	113.80
+...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...
+212340	2	2016-03-01 12:15:37	2016-03-01 12:38:53	1	-73.955688	40.782261	1	N	-73.974915	40.751282	1	16.0	0.0	0.5	3.36	0.00	0.3	20.16
+212341	2	2016-03-01 12:15:37	2016-03-01 12:38:22	1	-74.002197	40.715042	1	N	-73.976295	40.739609	1	15.5	0.0	0.5	2.00	0.00	0.3	18.30
+212342	2	2016-03-01 12:15:37	2016-03-01 12:18:18	1	-73.991173	40.733170	1	N	-73.994324	40.728531	1	4.0	0.0	0.5	0.00	0.00	0.3	4.80
+212343	1	2016-03-01 12:15:38	2016-03-01 12:22:47	2	-73.972099	40.786446	1	N	-73.955872	40.779755	2	7.0	0.0	0.5	0.00	0.00	0.3	7.80
+212344	1	2016-03-01 12:15:38	2016-03-01 12:34:59	1	-73.988770	40.712662	1	N	-73.944550	40.782276	2	20.5	0.0	0.5	0.00	0.00	0.3	21.30
+212345 rows × 18 columns
+
+data.shape
+(212345, 18)
+data["tpep_pickup_datetime"] = pd.to_datetime(data["tpep_pickup_datetime"])
+data["tpep_dropoff_datetime"] = pd.to_datetime(data["tpep_dropoff_datetime"])
+data.dtypes
+VendorID                          int64
+tpep_pickup_datetime     datetime64[ns]
+tpep_dropoff_datetime    datetime64[ns]
+passenger_count                   int64
+pickup_longitude                float64
+pickup_latitude                 float64
+RatecodeID                        int64
+store_and_fwd_flag               object
+dropoff_longitude               float64
+dropoff_latitude                float64
+payment_type                      int64
+fare_amount                     float64
+extra                           float64
+mta_tax                         float64
+tip_amount                      float64
+tolls_amount                    float64
+improvement_surcharge           float64
+total_amount                    float64
+dtype: object
+print(data.isnull().sum())
+VendorID                 0
+tpep_pickup_datetime     0
+tpep_dropoff_datetime    0
+passenger_count          0
+pickup_longitude         0
+pickup_latitude          0
+RatecodeID               0
+store_and_fwd_flag       0
+dropoff_longitude        0
+dropoff_latitude         0
+payment_type             0
+fare_amount              0
+extra                    0
+mta_tax                  0
+tip_amount               0
+tolls_amount             0
+improvement_surcharge    0
+total_amount             0
+dtype: int64
+print(data.duplicated().sum())
+0
+def haversine(pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude):
+    R = 6371 
+    dLat = math.radians(dropoff_latitude - pickup_latitude)
+    dLon = math.radians(dropoff_longitude - pickup_longitude)
+    
+    a = math.sin(dLat / 2)**2 + math.cos(math.radians(pickup_latitude)) * math.cos(math.radians(dropoff_latitude)) * math.sin(dLon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
+data["tpep_pickup_datetime"] = pd.to_datetime(data["tpep_pickup_datetime"])
+data["pickup_day"] = data["tpep_pickup_datetime"].dt.dayofweek.apply(lambda x: "Weekend" if x >= 5 else "Weekday")
+data["pickup_day"] =  data["pickup_day"].replace({"Weekend": 1, "Weekday": 0})
+data['am/pm'] = data['tpep_pickup_datetime'].dt.strftime('%p')
+data['am/pm'] = data['am/pm'].replace({'AM': 0, 'PM': 1})
+data["is_night"] = data["tpep_pickup_datetime"].dt.hour.apply(lambda x: 1 if (x >= 18 or x < 6) else 0)
+data["EDT"] = data["tpep_pickup_datetime"].dt.tz_localize("UTC").dt.tz_convert("America/New_York")
+data["trip_distance"] = data.apply(lambda row: haversine(row["pickup_latitude"], row["pickup_longitude"], 
+                                                     row["dropoff_latitude"], row["dropoff_longitude"]), axis=1)
+data["tpep_dropoff_datetime"] = pd.to_datetime(data["tpep_dropoff_datetime"])
+
+data["trip_duration"] = (data["tpep_dropoff_datetime"] - data["tpep_pickup_datetime"]).dt.total_seconds() / 60
+data.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime","store_and_fwd_flag"], inplace=True)
+df = data[["trip_distance", "EDT", "pickup_day", "am/pm", "is_night", "payment_type","passenger_count","trip_duration","fare_amount","total_amount"]]
+df
+trip_distance	EDT	pickup_day	am/pm	is_night	payment_type	passenger_count	trip_duration	fare_amount	total_amount
+0	3.138096	2016-02-29 19:00:00-05:00	0	0	1	1	1	7.916667	9.0	12.35
+1	4.303331	2016-02-29 19:00:00-05:00	0	0	1	1	1	11.100000	11.0	15.35
+2	16.600142	2016-02-29 19:00:00-05:00	0	0	1	1	2	31.100000	54.5	63.80
+3	9.046547	2016-02-29 19:00:00-05:00	0	0	1	1	3	0.000000	31.5	41.62
+4	20.400022	2016-02-29 19:00:00-05:00	0	0	1	1	5	0.000000	98.0	113.80
+...	...	...	...	...	...	...	...	...	...	...
+212340	3.806279	2016-03-01 07:15:37-05:00	0	1	0	1	1	23.266667	16.0	20.16
+212341	3.496576	2016-03-01 07:15:37-05:00	0	1	0	1	1	22.750000	15.5	18.30
+212342	0.580119	2016-03-01 07:15:37-05:00	0	1	0	1	1	2.683333	4.0	4.80
+212343	1.555737	2016-03-01 07:15:38-05:00	0	1	0	2	2	7.150000	7.0	7.80
+212344	8.590460	2016-03-01 07:15:38-05:00	0	1	0	2	1	19.350000	20.5	21.30
+212345 rows × 10 columns
+
+df.dtypes
+trip_distance                               float64
+EDT                datetime64[ns, America/New_York]
+pickup_day                                    int64
+am/pm                                         int64
+is_night                                      int64
+payment_type                                  int64
+passenger_count                               int64
+trip_duration                               float64
+fare_amount                                 float64
+total_amount                                float64
+dtype: object
+Exploratory Data Analysis (EDA)
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy import stats
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
+#bivariate analysis
+plt.figure(figsize=(12, 5))
+sns.scatterplot(x=df["trip_distance"], y=df["fare_amount"])
+plt.title("Fare Amount vs. Trip Distance")
+plt.xlabel("Trip Distance")
+plt.ylabel("Fare Amount")
+plt.show()
+
+#univariate
+plt.figure(figsize=(12, 5))
+sns.histplot(df["fare_amount"], bins=30, kde=True, color='red')
+plt.title("Fare Amount Distribution")
+plt.xlabel("Fare Amount")
+plt.ylabel("Frequency")
+plt.show()
+
+#univariate analysis
+plt.figure(figsize=(12, 5))
+sns.countplot(x=df["passenger_count"], palette="deep")
+plt.title("Passenger Count Distribution")
+plt.xlabel("Passenger Count")
+plt.ylabel("Frequency")
+plt.show()
+
+#bivariate analysis
+plt.figure(figsize=(12, 5))
+sns.boxplot(x=df["passenger_count"], y=df["fare_amount"], palette="Set2")
+plt.title("Fare Amount vs. Passenger Count")
+plt.xlabel("Passenger Count")
+plt.ylabel("Fare Amount")
+plt.show()
+
+outliers detection
+
+df['z_score_fare'] = stats.zscore(df['fare_amount'])
+df_outliers_fare = df[df['z_score_fare'].abs() > 3]
+print("Number of outliers in fare amount:", len(df_outliers_fare))
+Number of outliers in fare amount: 5902
+df['z_score_distance'] = stats.zscore(df['trip_distance'])
+df_outliers_distance = df[df['z_score_distance'].abs() > 3]
+print("Number of outliers in trip distance:", len(df_outliers_distance))
+Number of outliers in trip distance: 539
+df['z_score_duration'] = stats.zscore(df['trip_duration'])
+df_outliers_duration = df[df['z_score_duration'].abs() > 3]
+print("Number of outliers in trip duration:", len(df_outliers_duration))
+Number of outliers in trip duration: 331
+Average Fare Amount Across Hours
+
+df["hour"] = df["EDT"].dt.hour
+
+df_hourly_fare = df.groupby("hour")["fare_amount"].mean()
+
+plt.figure(figsize=(15, 5))
+sns.lineplot(x=df_hourly_fare.index, y=df_hourly_fare.values, marker='o', color='darkblue')
+plt.title("Average Fare Amount Across Hours")
+plt.xlabel("Hour of the Day")
+plt.ylabel("Average Fare ($)")
+plt.xticks(range(0, 24))
+plt.show()
+
+Weekday vs Weekend Fare Variations
+
+df["weekday"] = df["EDT"].dt.dayofweek  
+df["day_type"] = df["weekday"].apply(lambda x: "Weekday" if x < 5 else "Weekend")
+plt.figure(figsize=(12, 5))
+sns.boxplot(x=df["day_type"], y=df["fare_amount"], palette="Set1")
+plt.title("Weekday vs Weekend Fare Variations")
+plt.xlabel("Day Type")
+plt.ylabel("Fare Amount")
+plt.show()
+
+Average Fare Amount Across Months
+
+df["month"] = df["EDT"].dt.month
+df_monthly_fare = df.groupby("month")["fare_amount"].mean()
+
+plt.figure(figsize=(15, 5))
+sns.lineplot(x=df_monthly_fare.index, y=df_monthly_fare.values, marker='o', color='green')
+plt.title("Average Fare Amount Across Months")
+plt.xlabel("Month")
+plt.ylabel("Average Fare ($)")
+plt.xticks(range(1, 13))
+plt.show()
+
+df['is_rush_hour'] = df['hour'].apply(lambda x: 1 if (7 <= x <= 9 or 16 <= x <= 19) else 0)
+df['is_rush_hour']
+0         1
+1         1
+2         1
+3         1
+4         1
+         ..
+212340    1
+212341    1
+212342    1
+212343    1
+212344    1
+Name: is_rush_hour, Length: 212345, dtype: int64
+plt.figure(figsize=(12, 5))
+sns.lineplot(x=df.groupby('is_rush_hour')['hour'].mean().index, y=df.groupby('is_rush_hour')['hour'].mean().values, marker='o', color='black')
+plt.title("Average Fare Amount During Rush Hours")
+plt.xlabel("Rush Hour (0: No, 1: Yes)")
+plt.ylabel("hour")
+plt.show()
+
+distribution of trip distance
+
+plt.figure(figsize=(12, 5))
+sns.histplot(df["trip_distance"], bins=30, kde=False, color='black')
+plt.title("Trip Distance Distribution")
+plt.xlabel("Trip Distance")
+plt.ylabel("Frequency")
+plt.show()
+
+trip duration
+
+plt.figure(figsize=(12, 5))
+sns.histplot(df["trip_duration"], bins=30, kde=False, color='purple')
+plt.title("Trip Duration Distribution")
+plt.xlabel("Trip Duration")
+plt.ylabel("Frequency")
+plt.show()
+
+pickup hours
+
+plt.figure(figsize=(12, 5))
+sns.histplot(df["hour"], bins=24, kde=False, color='orange')
+plt.title("Pickup Hour Distribution")
+plt.xlabel("Hour of Day")
+plt.ylabel("Frequency")
+plt.xticks(range(0, 24))
+plt.show()
+
+df["fare_per_mile"] = df["fare_amount"] / df["trip_distance"]
+df["fare_per_minute"] = df["fare_amount"] / df["trip_duration"]
+
+
+# Remove inf/-inf values for plotting
+fare_per_mile_clean = df["fare_per_mile"].replace([np.inf, -np.inf], np.nan).dropna()
+fare_per_minute_clean = df["fare_per_minute"].replace([np.inf, -np.inf], np.nan).dropna()
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+fare_per_mile_clean.plot(kind='hist', bins=30, ax=axes[0], color='skyblue', edgecolor='black')
+axes[0].set_title('Fare per mile')
+
+fare_per_minute_clean.plot(kind='hist', bins=30, ax=axes[1], color='lightgreen', edgecolor='black')
+axes[1].set_title('Fare per minute')
+
+df_hourly_fare.plot(kind='hist', bins=30, ax=axes[2], color='salmon', edgecolor='black')
+axes[2].set_title('Fare per hour')
+
+plt.tight_layout()
+plt.show()
+
+trip_counts = df["hour"].value_counts().sort_index()
+
+plt.figure(figsize=(12, 5))
+sns.lineplot(x=trip_counts.index, y=trip_counts.values, marker='o', color='darkred',linestyle='--')
+plt.title("Trip Counts by Pickup Hour")
+plt.xlabel("Hour of Day")
+plt.ylabel("Trip Count")
+plt.xticks(range(0, 24))
+plt.show()
+
+df["is_night"] = df["hour"].apply(lambda x: 1 if x >= 22 or x <= 6 else 0)
+avg_fare_night = df[df["is_night"] == 1]["fare_amount"].mean()
+print(f"Average Fare Amount During Night Hours: ${avg_fare_night:.2f}")
+Average Fare Amount During Night Hours: $12.34
+df["is_weekend"] = df["EDT"].dt.dayofweek.isin([5, 6])
+avg_fare_weekend = df[df["is_weekend"]]["fare_amount"].mean()
+print(f"Average Fare Amount During Weekend: ${avg_fare_weekend:.2f}")
+#so no weekend in df
+Average Fare Amount During Weekend: $nan
+# Map payment_type to readable labels
+payment_labels = {1: 'GPay', 2: 'Cash'}
+payment_counts = df["payment_type"].map(payment_labels).value_counts(normalize=True)
+
+ax = payment_counts.plot(kind="bar", color=['brown', 'lightcoral'])
+ax.set_xlabel("Payment Type")
+ax.set_ylabel("Proportion")
+ax.set_title("Transaction Count: GPay vs. Cash")
+plt.show()
+
+data transformation
+
+from scipy.stats import skew
+log = np.log(df["fare_amount"] + 1)  
+sns.boxplot(x=log)
+plt.xlabel("Log(Fare Amount + 1)")
+Text(0.5, 0, 'Log(Fare Amount + 1)')
+
+log = np.log(df["trip_duration"] + 1) 
+sns.boxplot(log)
+<Axes: ylabel='trip_duration'>
+
+box_val, _ = stats.boxcox(df["trip_distance"] + 1)
+sns.boxplot(box_val)
+<Axes: >
+
+df.dtypes
+trip_distance                                float64
+EDT                 datetime64[ns, America/New_York]
+pickup_day                                     int64
+am/pm                                          int64
+is_night                                       int64
+payment_type                                   int64
+passenger_count                                int64
+trip_duration                                float64
+fare_amount                                  float64
+total_amount                                 float64
+z_score_fare                                 float64
+z_score_distance                             float64
+z_score_duration                             float64
+hour                                           int32
+weekday                                        int32
+day_type                                      object
+month                                          int32
+is_rush_hour                                   int64
+fare_per_mile                                float64
+fare_per_minute                              float64
+is_weekend                                      bool
+dtype: object
+feature selection
+
+df.drop(columns=["EDT",'fare_amount', 'pickup_day','z_score_fare','weekday', 'z_score_distance','z_score_duration','fare_per_minute' ,'fare_per_mile','trip_length_category','is_weekend', 'day_type', 'month'], inplace=True, errors='ignore')
+df
+trip_distance	am/pm	is_night	payment_type	passenger_count	trip_duration	total_amount	hour	is_rush_hour
+0	3.138096	0	0	1	1	7.916667	12.35	19	1
+1	4.303331	0	0	1	1	11.100000	15.35	19	1
+2	16.600142	0	0	1	2	31.100000	63.80	19	1
+3	9.046547	0	0	1	3	0.000000	41.62	19	1
+4	20.400022	0	0	1	5	0.000000	113.80	19	1
+...	...	...	...	...	...	...	...	...	...
+212340	3.806279	1	0	1	1	23.266667	20.16	7	1
+212341	3.496576	1	0	1	1	22.750000	18.30	7	1
+212342	0.580119	1	0	1	1	2.683333	4.80	7	1
+212343	1.555737	1	0	2	2	7.150000	7.80	7	1
+212344	8.590460	1	0	2	1	19.350000	21.30	7	1
+212345 rows × 9 columns
+
+target = df['total_amount']
+
+# Use 'total_amount' as the target for correlation
+corr_matrix = df.corr()
+target_corr = corr_matrix['total_amount'].sort_values(ascending=False)
+
+# Visualize top correlated features with 'fare_amount'
+plt.figure(figsize=(15, 8))
+sns.heatmap(df[target_corr.index].corr(), annot=True, cmap='coolwarm')
+plt.show()
+
+df.dtypes
+trip_distance      float64
+am/pm                int64
+is_night             int64
+payment_type         int64
+passenger_count      int64
+trip_duration      float64
+total_amount       float64
+hour                 int32
+is_rush_hour         int64
+dtype: object
+feature importance
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+# Prepare features and target
+X = df.drop(columns=['total_amount'])
+y = df['total_amount']
+
+# Clean timestamp data
+for col in X.columns:
+    if X[col].apply(lambda x: isinstance(x, pd.Timestamp)).any():
+        print(f"Dropping timestamp column: {col}")
+        X = X.drop(columns=[col])
+
+if y.apply(lambda x: isinstance(x, pd.Timestamp)).any():
+    print("Converting timestamps in target column y")
+    y = y.apply(lambda x: x.timestamp())
+
+
+for col in X.columns:
+    if X[col].dtype == 'object':
+        print(f"{col}: {X[col].unique()}")
+
+# Split into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+rf = RandomForestRegressor(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+RandomForestRegressor(random_state=42)
+In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook.
+On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+models = {
+    'LinearRegression': LinearRegression(),
+    'Ridge': Ridge(alpha=1.0),
+    'Lasso': Lasso(alpha=0.01),
+    'RandomForest': RandomForestRegressor(n_estimators=100, random_state=42),
+    'GradientBoosting': GradientBoostingRegressor(n_estimators=100, random_state=42)
+}
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Drop rows with NaN in features or target for both train and test sets
+X_train_clean = X_train.dropna()
+y_train_clean = y_train.loc[X_train_clean.index]
+X_test_clean = X_test.dropna()
+y_test_clean = y_test.loc[X_test_clean.index]
+
+# One-hot encode categorical columns
+categorical_cols = X_train_clean.select_dtypes(include=['object', 'category', 'bool']).columns
+X_train_encoded = pd.get_dummies(X_train_clean, columns=categorical_cols, drop_first=True)
+X_test_encoded = pd.get_dummies(X_test_clean, columns=categorical_cols, drop_first=True)
+
+# Align columns in test set to match train set
+X_test_encoded = X_test_encoded.reindex(columns=X_train_encoded.columns, fill_value=0)
+
+results = []
+
+for name, model in models.items():
+    # Fit the model on training data
+    model.fit(X_train_encoded, y_train_clean)
+    # Predict on test data
+    y_pred = model.predict(X_test_encoded)
+
+    mse = mean_squared_error(y_test_clean, y_pred)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_test_clean, y_pred)
+    r2 = r2_score(y_test_clean, y_pred)
+
+    results.append({
+        'Model': name,
+        'R²': r2,
+        'MSE': mse,
+        'RMSE': rmse,
+        'MAE': mae
+    })
+
+results_df = pd.DataFrame(results).sort_values(by='RMSE')
+print(results_df)
+              Model        R²         MSE       RMSE       MAE
+4  GradientBoosting  0.834722   32.372189   5.689656  1.564324
+3      RandomForest  0.818628   35.524474   5.960241  1.581828
+0  LinearRegression  0.045992  186.856957  13.669563  7.979111
+1             Ridge  0.045992  186.856966  13.669563  7.979109
+2             Lasso  0.045812  186.892256  13.670854  7.979720
+#saving gradient boosting model
+
+gb_model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+gb_model.fit(X_train, y_train)
+
+import pickle
+with open('gb_model.pkl', 'wb') as file:
+    pickle.dump(gb_model, file)
+featured_columns = X_train_encoded.columns.tolist()
+print("Featured columns saved:", featured_columns)
+
+with open('feature_columns.pkl', 'wb') as file:
+    pickle.dump(featured_columns, file)
+Featured columns saved: ['trip_distance', 'am/pm', 'is_night', 'payment_type', 'passenger_count', 'trip_duration', 'hour', 'is_rush_hour']
